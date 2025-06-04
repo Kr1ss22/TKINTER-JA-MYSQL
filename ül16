@@ -1,0 +1,35 @@
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  firstname TEXT NOT NULL,
+  lastname TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  profile_picture TEXT
+);
+
+CREATE TABLE rooms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_number INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  price REAL NOT NULL,
+  availability TEXT NOT NULL
+);
+
+CREATE TABLE bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  room_id INTEGER NOT NULL,
+  arrival_date TEXT NOT NULL,
+  departure_date TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (room_id) REFERENCES rooms(id)
+);
+
+CREATE TABLE payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  booking_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  payment_date TEXT NOT NULL,
+  method TEXT NOT NULL,
+  FOREIGN KEY (booking_id) REFERENCES bookings(id)
+);
