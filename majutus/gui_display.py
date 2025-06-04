@@ -1,7 +1,7 @@
 import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
-from users_form import open_user_form  # Lisa see ainult kui kasutad eraldi faili lisamiseks
+from users_form import open_user_form  
 
 DB_FILE = 'kmustkivi.db'
 
