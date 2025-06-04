@@ -2,8 +2,7 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-DB_NAME = 'kmustkivi.db'  # Su andmebaas
-
+DB_NAME = 'kmustkivi.db' 
 def load_users(search_query=""):
     for row in tree.get_children():
         tree.delete(row)
