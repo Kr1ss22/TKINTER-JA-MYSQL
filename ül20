@@ -1,0 +1,104 @@
+import sqlite3
+import tkinter as tk
+from tkinter import ttk, messagebox
+from users_form import open_user_form
+
+DB_FILE = 'kmustkivi.db'
+
+def search_users():
+    query = search_var.get()
+    for item in tree.get_children():
+        tree.delete(item)
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("SELECT id, firstname, lastname, email, phone FROM users WHERE firstname LIKE ? OR lastname LIKE ?", 
+                (f'%{query}%', f'%{query}%'))
+    for row in cur.fetchall():
+        tree.insert("", tk.END, values=row)
+    conn.close()
+
+def load_users():
+    for item in tree.get_children():
+        tree.delete(item)
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("SELECT id, firstname, lastname, email, phone FROM users")
+    for row in cur.fetchall():
+        tree.insert("", tk.END, values=row)
+    conn.close()
+
+root = tk.Tk()
+root.title("Külaliste andmevaade")
+
+search_var = tk.StringVar()
+
+tk.Label(root, text="Otsi nime järgi:").pack(pady=5)
+tk.Entry(root, textvariable=search_var).pack(pady=5)
+tk.Button(root, text="Otsi", command=search_users).pack(pady=5)
+
+cols = ("ID", "Eesnimi", "Perenimi", "Email", "Telefon")
+tree = ttk.Treeview(root, columns=cols, show='headings')
+
+for col in cols:
+    tree.heading(col, text=col)
+    tree.column(col, width=120)
+
+scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
+tree.configure(yscroll=scrollbar.set)
+
+tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+tk.Button(root, text="Lisa uus kasutaja", command=open_user_form).pack(pady=10)
+
+load_users()
+root.mainloop()
+
+
+
+
+
+
+
+
+
+
+
+import sqlite3
+import tkinter as tk
+from tkinter import messagebox
+
+def open_user_form():
+    def add_user():
+        if not first.get() or not last.get() or not email.get():
+            messagebox.showerror("Viga", "Palun täida kõik kohustuslikud väljad!")
+            return
+        conn = sqlite3.connect('kmustkivi.db')
+        cur = conn.cursor()
+        cur.execute("INSERT INTO users (firstname, lastname, email, phone) VALUES (?, ?, ?, ?)",
+                    (first.get(), last.get(), email.get(), phone.get()))
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Edu", "Kasutaja lisatud!")
+        window.destroy()
+
+    window = tk.Toplevel()
+    window.title("Lisa kasutaja")
+
+    tk.Label(window, text="Eesnimi *").pack()
+    first = tk.Entry(window)
+    first.pack()
+
+    tk.Label(window, text="Perenimi *").pack()
+    last = tk.Entry(window)
+    last.pack()
+
+    tk.Label(window, text="Email *").pack()
+    email = tk.Entry(window)
+    email.pack()
+
+    tk.Label(window, text="Telefon").pack()
+    phone = tk.Entry(window)
+    phone.pack()
+
+    tk.Button(window, text="Lisa", command=add_user).pack(pady=10)
