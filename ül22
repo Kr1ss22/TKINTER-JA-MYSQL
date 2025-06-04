@@ -1,0 +1,144 @@
+import sqlite3
+import tkinter as tk
+from tkinter import ttk, messagebox
+from users_form import open_user_form  # Lisa see ainult kui kasutad eraldi faili lisamiseks
+
+DB_FILE = 'kmustkivi.db'
+
+def search_users():
+    query = search_var.get()
+    for item in tree.get_children():
+        tree.delete(item)
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("SELECT id, firstname, lastname, email, phone FROM users WHERE firstname LIKE ? OR lastname LIKE ?", 
+                (f'%{query}%', f'%{query}%'))
+    for row in cur.fetchall():
+        tree.insert("", tk.END, values=row)
+    conn.close()
+
+def load_users():
+    for item in tree.get_children():
+        tree.delete(item)
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("SELECT id, firstname, lastname, email, phone FROM users")
+    for row in cur.fetchall():
+        tree.insert("", tk.END, values=row)
+    conn.close()
+
+def edit_selected_user():
+    selected = tree.focus()
+    if not selected:
+        messagebox.showwarning("Valik puudub", "Palun vali kasutaja tabelist.")
+        return
+
+    values = tree.item(selected, "values")
+    user_id, firstname, lastname, email, phone = values
+
+    form = tk.Toplevel(root)
+    form.title("Muuda kasutajat")
+
+    tk.Label(form, text="Eesnimi").grid(row=0, column=0)
+    tk.Label(form, text="Perenimi").grid(row=1, column=0)
+    tk.Label(form, text="Email").grid(row=2, column=0)
+    tk.Label(form, text="Telefon").grid(row=3, column=0)
+
+    firstname_entry = tk.Entry(form)
+    lastname_entry = tk.Entry(form)
+    email_entry = tk.Entry(form)
+    phone_entry = tk.Entry(form)
+
+    firstname_entry.grid(row=0, column=1)
+    lastname_entry.grid(row=1, column=1)
+    email_entry.grid(row=2, column=1)
+    phone_entry.grid(row=3, column=1)
+
+    firstname_entry.insert(0, firstname)
+    lastname_entry.insert(0, lastname)
+    email_entry.insert(0, email)
+    phone_entry.insert(0, phone)
+
+    def save_changes():
+        new_firstname = firstname_entry.get()
+        new_lastname = lastname_entry.get()
+        new_email = email_entry.get()
+        new_phone = phone_entry.get()
+
+        if not new_firstname or not new_lastname or not new_email:
+            messagebox.showerror("Viga", "Eesnimi, perenimi ja email on kohustuslikud!")
+            return
+
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE users SET firstname = ?, lastname = ?, email = ?, phone = ?
+                WHERE id = ?
+            """, (new_firstname, new_lastname, new_email, new_phone, user_id))
+            conn.commit()
+            conn.close()
+            load_users()
+            form.destroy()
+            messagebox.showinfo("Edu", "Andmed uuendatud.")
+        except Exception as e:
+            messagebox.showerror("Viga", str(e))
+
+    tk.Button(form, text="Salvesta muudatused", command=save_changes).grid(row=4, columnspan=2, pady=10)
+
+def delete_selected_user():
+    selected = tree.focus()
+    if not selected:
+        messagebox.showwarning("Valik puudub", "Palun vali kasutaja, keda soovid kustutada.")
+        return
+
+    values = tree.item(selected, "values")
+    user_id = values[0]
+
+    confirm = messagebox.askyesno("Kinnitus", "Kas oled kindel, et soovid selle kasutaja kustutada?")
+    if not confirm:
+        return
+
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        load_users()
+        messagebox.showinfo("Kustutatud", "Kasutaja kustutati edukalt.")
+    except Exception as e:
+        messagebox.showerror("Viga", f"Kustutamine ebaõnnestus: {e}")
+
+# Peaaken
+root = tk.Tk()
+root.title("Külaliste andmevaade")
+
+search_var = tk.StringVar()
+
+tk.Label(root, text="Otsi nime järgi:").pack(pady=5)
+tk.Entry(root, textvariable=search_var).pack(pady=5)
+tk.Button(root, text="Otsi", command=search_users).pack(pady=5)
+
+cols = ("ID", "Eesnimi", "Perenimi", "Email", "Telefon")
+tree = ttk.Treeview(root, columns=cols, show='headings')
+
+for col in cols:
+    tree.heading(col, text=col)
+    tree.column(col, width=120)
+
+scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
+tree.configure(yscroll=scrollbar.set)
+
+tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+btn_frame = tk.Frame(root)
+btn_frame.pack(pady=10)
+
+tk.Button(btn_frame, text="Lisa uus kasutaja", command=open_user_form).pack(side=tk.LEFT, padx=5)
+tk.Button(btn_frame, text="Muuda valitud kasutajat", command=edit_selected_user).pack(side=tk.LEFT, padx=5)
+tk.Button(btn_frame, text="Kustuta valitud kasutaja", command=delete_selected_user).pack(side=tk.LEFT, padx=5)
+
+load_users()
+root.mainloop()
