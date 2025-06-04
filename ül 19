@@ -1,0 +1,66 @@
+import sqlite3
+import tkinter as tk
+from tkinter import messagebox
+
+# Ühendus SQLite andmebaasiga
+conn = sqlite3.connect("kmustkivi.db")  
+cursor = conn.cursor()
+
+# GUI loomine
+root = tk.Tk()
+root.title("Külalise lisamine")
+
+# Sildid ja sisendväljad
+tk.Label(root, text="Eesnimi *").grid(row=0, column=0)
+firstname_entry = tk.Entry(root)
+firstname_entry.grid(row=0, column=1)
+
+tk.Label(root, text="Perekonnanimi").grid(row=1, column=0)
+lastname_entry = tk.Entry(root)
+lastname_entry.grid(row=1, column=1)
+
+tk.Label(root, text="Email *").grid(row=2, column=0)
+email_entry = tk.Entry(root)
+email_entry.grid(row=2, column=1)
+
+tk.Label(root, text="Telefon").grid(row=3, column=0)
+phone_entry = tk.Entry(root)
+phone_entry.grid(row=3, column=1)
+
+tk.Label(root, text="Profiilipilt (URL)").grid(row=4, column=0)
+profile_entry = tk.Entry(root)
+profile_entry.grid(row=4, column=1)
+
+# Andmete lisamise funktsioon
+def lisa_kylaline():
+    firstname = firstname_entry.get()
+    lastname = lastname_entry.get()
+    email = email_entry.get()
+    phone = phone_entry.get()
+    profile = profile_entry.get()
+
+    if not firstname or not email:
+        messagebox.showerror("Viga", "Eesnimi ja email on kohustuslikud!")
+        return
+
+    try:
+        cursor.execute("""
+            INSERT INTO users (firstname, lastname, email, phone, profile_picture)
+            VALUES (?, ?, ?, ?, ?)
+        """, (firstname, lastname, email, phone, profile))
+        conn.commit()
+        messagebox.showinfo("Edukas", "Külaline edukalt lisatud!")
+        firstname_entry.delete(0, tk.END)
+        lastname_entry.delete(0, tk.END)
+        email_entry.delete(0, tk.END)
+        phone_entry.delete(0, tk.END)
+        profile_entry.delete(0, tk.END)
+    except Exception as e:
+        messagebox.showerror("Tõrge", f"Midagi läks valesti: {e}")
+
+# Nupp
+submit_btn = tk.Button(root, text="Lisa külaline", command=lisa_kylaline)
+submit_btn.grid(row=5, column=0, columnspan=2)
+
+# Käivita GUI
+root.mainloop()
