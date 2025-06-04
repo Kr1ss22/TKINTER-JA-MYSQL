@@ -1,0 +1,27 @@
+SELECT user_id
+FROM bookings
+GROUP BY user_id
+HAVING COUNT(DISTINCT arrival_date || '-' || departure_date) > 1;
+
+SELECT 
+  u.id AS user_id,
+  u.firstname,
+  u.lastname,
+  COUNT(b.id) AS total_bookings,
+  SUM(p.amount) AS total_paid
+FROM users u
+JOIN bookings b ON u.id = b.user_id
+LEFT JOIN payments p ON b.id = p.booking_id
+GROUP BY u.id;
+
+SELECT 
+  u.id AS user_id,
+  u.firstname,
+  u.lastname,
+  COUNT(b.id) AS total_bookings,
+  SUM(p.amount) AS total_paid
+FROM users u
+JOIN bookings b ON u.id = b.user_id
+LEFT JOIN payments p ON b.id = p.booking_id
+GROUP BY u.id
+HAVING COUNT(DISTINCT b.arrival_date || '-' || b.departure_date) > 1;
