@@ -1,66 +1,101 @@
+# Jätkame ülesanne 17 ja 18 kasutatud andmebaasiga.
+# Kursuste andmebaas
+# Spordiklubi andmebaas
+# Raamatukogu andmebaas
+# Majutuse andmebaas
+# Loo oma andmebaasile graafiline liides andmete lisamiseks.
+# Muuda välja kohustuslikuks ja loo vastav teade
+# Loo teatekast, mis teavitab edukast või ebaõnnestunud lisamisest
+
 import sqlite3
 import tkinter as tk
 from tkinter import messagebox
 
-# Ühendus SQLite andmebaasiga
-conn = sqlite3.connect("kmustkivi.db")  
-cursor = conn.cursor()
 
-# GUI loomine
+def validate_data():
+    eesnimi_kt = entries["eesnimi"].get()
+    perenimi_kt = entries["perenimi"].get()
+    email_kt = entries["email"].get()
+    tel_kt = entries["tel"].get()
+    profiilipilt_kt = entries["profiilipilt"].get()
+
+    if not eesnimi_kt:
+        messagebox.showerror("Viga", "Eesnimi on kohustuslik!")
+        return False
+    if not perenimi_kt:
+        messagebox.showerror("Viga", "Perenimi on kohustuslik!")
+        return False
+    if not email_kt:
+        messagebox.showerror("Viga", "Email on kohustuslik!")
+        return False
+    if not tel_kt.isdigit():
+        messagebox.showerror("Viga", "Telefoni number on kohustuslik ja sisaldama ainult numbreid!")
+        return False
+    if not profiilipilt_kt:
+        messagebox.showerror("Viga", "Profiilipilt on kohustuslik!")
+        return False
+
+    return True
+
+
+
+def insert_data():
+    if validate_data():
+        try:
+
+
+            connection = sqlite3.connect(".\kplaas.db")
+            cursor = connection.cursor()
+            print("Andmebaasiga ühendus loodud")
+
+            cursor.execute("""
+                INSERT INTO users (eesnimi, perenimi, email, tel, profiilipilt)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                entries["eesnimi"].get(),
+                entries["perenimi"].get(),
+                entries["email"].get(),
+                entries["tel"].get(),
+                entries["profiilipilt"].get()
+            ))
+
+
+        except sqlite3.Error as error:
+            print("Tekkis viga andmebaasiga ühendamisel või päringu teostamisel:", error)
+
+
+        finally:
+            if connection:
+                connection.commit()
+                connection.close()
+                clear_entries()
+                print("Ühendus suleti")
+                messagebox.showinfo("Edu", "Andmed sisestati edukalt!")
+
+
+
+def clear_entries():
+    for entry in entries.values():
+        entry.delete(0, tk.END)
+
+
+
 root = tk.Tk()
-root.title("Külalise lisamine")
+root.title("Kasutaja andmete sisestamine")
 
-# Sildid ja sisendväljad
-tk.Label(root, text="Eesnimi *").grid(row=0, column=0)
-firstname_entry = tk.Entry(root)
-firstname_entry.grid(row=0, column=1)
+# Loo sildid ja sisestusväljad
+labels = ["eesnimi", "perenimi", "email", "tel", "profiilipilt"]
+entries = {}
 
-tk.Label(root, text="Perekonnanimi").grid(row=1, column=0)
-lastname_entry = tk.Entry(root)
-lastname_entry.grid(row=1, column=1)
+for i, label in enumerate(labels):
+    tk.Label(root, text=label).grid(row=i, column=0, padx=10, pady=5)
+    entry = tk.Entry(root, width=40)
+    entry.grid(row=i, column=1, padx=10, pady=5)
+    entries[label] = entry
 
-tk.Label(root, text="Email *").grid(row=2, column=0)
-email_entry = tk.Entry(root)
-email_entry.grid(row=2, column=1)
+# Loo nupp andmete sisestamiseks
+submit_button = tk.Button(root, text="Sisesta andmed", command=insert_data)
+submit_button.grid(row=len(labels), column=0, columnspan=2, pady=20)
 
-tk.Label(root, text="Telefon").grid(row=3, column=0)
-phone_entry = tk.Entry(root)
-phone_entry.grid(row=3, column=1)
-
-tk.Label(root, text="Profiilipilt (URL)").grid(row=4, column=0)
-profile_entry = tk.Entry(root)
-profile_entry.grid(row=4, column=1)
-
-# Andmete lisamise funktsioon
-def lisa_kylaline():
-    firstname = firstname_entry.get()
-    lastname = lastname_entry.get()
-    email = email_entry.get()
-    phone = phone_entry.get()
-    profile = profile_entry.get()
-
-    if not firstname or not email:
-        messagebox.showerror("Viga", "Eesnimi ja email on kohustuslikud!")
-        return
-
-    try:
-        cursor.execute("""
-            INSERT INTO users (firstname, lastname, email, phone, profile_picture)
-            VALUES (?, ?, ?, ?, ?)
-        """, (firstname, lastname, email, phone, profile))
-        conn.commit()
-        messagebox.showinfo("Edukas", "Külaline edukalt lisatud!")
-        firstname_entry.delete(0, tk.END)
-        lastname_entry.delete(0, tk.END)
-        email_entry.delete(0, tk.END)
-        phone_entry.delete(0, tk.END)
-        profile_entry.delete(0, tk.END)
-    except Exception as e:
-        messagebox.showerror("Tõrge", f"Midagi läks valesti: {e}")
-
-# Nupp
-submit_btn = tk.Button(root, text="Lisa külaline", command=lisa_kylaline)
-submit_btn.grid(row=5, column=0, columnspan=2)
-
-# Käivita GUI
+# Näita Tkinteri akent
 root.mainloop()
