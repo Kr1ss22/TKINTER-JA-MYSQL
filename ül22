@@ -1,144 +1,211 @@
-import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
-from users_form import open_user_form  # Lisa see ainult kui kasutad eraldi faili lisamiseks
+import sqlite3
+import subprocess
 
-DB_FILE = 'kmustkivi.db'
+# Avab lisamise faili
+def add_data():
+    subprocess.run(["python", ".\h19\h19.py"])
 
-def search_users():
-    query = search_var.get()
+# Otsingufunktsioon
+def on_search():
+    search_query = search_entry.get()
+    load_data_from_db(tree, search_query)
+
+# Funktsioon, mis laadib andmed SQLite andmebaasist ja sisestab need Treeview tabelisse
+def load_data_from_db(tree, search_query=""):
+    # Puhasta Treeview tabel enne uute andmete lisamist
     for item in tree.get_children():
         tree.delete(item)
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-    cur.execute("SELECT id, firstname, lastname, email, phone FROM users WHERE firstname LIKE ? OR lastname LIKE ?", 
-                (f'%{query}%', f'%{query}%'))
-    for row in cur.fetchall():
-        tree.insert("", tk.END, values=row)
+
+    # Loo ühendus SQLite andmebaasiga
+    conn = sqlite3.connect('.\kplaas.db')
+    cursor = conn.cursor()
+
+    # Tee päring andmebaasist andmete toomiseks, koos ID-ga, kuid ID ei kuvata
+    if search_query:
+        cursor.execute("""
+            SELECT id, eesnimi, perenimi, email, tel, profiilipilt
+            FROM users
+            WHERE eesnimi LIKE ?
+        """, ('%' + search_query + '%',))
+    else:
+        cursor.execute("""
+            SELECT id, eesnimi, perenimi, email, tel, profiilipilt
+            FROM users
+        """)
+
+    rows = cursor.fetchall()
+
+    # Lisa andmed tabelisse (Treeview), kuid ID-d ei kuvata
+    for row in rows:
+        tree.insert("", "end", values=row[1:], iid=row[0])  # iid määratakse ID-ks
+
+    # Sulge ühendus andmebaasiga
     conn.close()
 
-def load_users():
-    for item in tree.get_children():
-        tree.delete(item)
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-    cur.execute("SELECT id, firstname, lastname, email, phone FROM users")
-    for row in cur.fetchall():
-        tree.insert("", tk.END, values=row)
+# Funktsioon, mis näitab valitud rea ID-d ja avab muutmise vormi
+def on_update():
+    selected_item = tree.selection()  # Võta valitud rida
+    if selected_item:
+        record_id = selected_item[0]  # iid (ID)
+        open_update_window(record_id)
+    else:
+        messagebox.showwarning("Valik puudub", "Palun vali kõigepealt rida!")
+
+# Funktsioon, mis avab uue akna andmete muutmiseks
+def open_update_window(record_id):
+    # Loo uus aken
+    update_window = tk.Toplevel(root)
+    update_window.title("Muuda kasutaja andmeid")
+
+    # Loo andmebaasi ühendus ja toomine olemasolevad andmed
+    conn = sqlite3.connect('.\kplaas.db')
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT eesnimi, perenimi, email, tel, profiilipilt
+        FROM users
+        WHERE id=?
+    """, (record_id,))
+    record = cursor.fetchone()
     conn.close()
 
-def edit_selected_user():
-    selected = tree.focus()
-    if not selected:
-        messagebox.showwarning("Valik puudub", "Palun vali kasutaja tabelist.")
-        return
+    # Veergude nimed ja vastavad sisestusväljad
+    labels = ["eesnimi", "perenimi", "email", "tel", "profiilipilt"]
+    entries = {}
 
-    values = tree.item(selected, "values")
-    user_id, firstname, lastname, email, phone = values
+    for i, label in enumerate(labels):
+        tk.Label(update_window, text=label).grid(row=i, column=0, padx=10, pady=5, sticky=tk.W)
+        entry = tk.Entry(update_window, width=50)
+        entry.grid(row=i, column=1, padx=10, pady=5)
+        entry.insert(0, record[i])
+        entries[label] = entry
 
-    form = tk.Toplevel(root)
-    form.title("Muuda kasutajat")
+    # Salvestamise nupp
+    save_button = tk.Button(update_window, text="Salvesta", command=lambda: update_record(record_id, entries, update_window))
+    save_button.grid(row=len(labels), column=0, columnspan=2, pady=10)
 
-    tk.Label(form, text="Eesnimi").grid(row=0, column=0)
-    tk.Label(form, text="Perenimi").grid(row=1, column=0)
-    tk.Label(form, text="Email").grid(row=2, column=0)
-    tk.Label(form, text="Telefon").grid(row=3, column=0)
+# Funktsioon, mis uuendab andmed andmebaasis
+def update_record(record_id, entries, window):
+    # Koguge andmed sisestusväljadest
+    eesnimi_kt = entries["eesnimi"].get()
+    perenimi_kt = entries["perenimi"].get()
+    email_kt = entries["email"].get()
+    tel_kt = entries["tel"].get()
+    profiilipilt_kt = entries["profiilipilt"].get()
 
-    firstname_entry = tk.Entry(form)
-    lastname_entry = tk.Entry(form)
-    email_entry = tk.Entry(form)
-    phone_entry = tk.Entry(form)
+    # Andmete uuendamine andmebaasis
+    conn = sqlite3.connect('./kplaas.db')
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE users
+        SET eesnimi=?, perenimi=?, email=?, tel=?, profiilipilt=?
+        WHERE id=?
+    """, (eesnimi_kt, perenimi_kt, email_kt, tel_kt, profiilipilt_kt, record_id))
+    conn.commit()
+    conn.close()
 
-    firstname_entry.grid(row=0, column=1)
-    lastname_entry.grid(row=1, column=1)
-    email_entry.grid(row=2, column=1)
-    phone_entry.grid(row=3, column=1)
+    # Värskenda Treeview tabelit
+    load_data_from_db(tree)
 
-    firstname_entry.insert(0, firstname)
-    lastname_entry.insert(0, lastname)
-    email_entry.insert(0, email)
-    phone_entry.insert(0, phone)
+    # Sulge muutmise aken
+    window.destroy()
 
-    def save_changes():
-        new_firstname = firstname_entry.get()
-        new_lastname = lastname_entry.get()
-        new_email = email_entry.get()
-        new_phone = phone_entry.get()
+    messagebox.showinfo("Salvestamine", "Andmed on edukalt uuendatud!")
 
-        if not new_firstname or not new_lastname or not new_email:
-            messagebox.showerror("Viga", "Eesnimi, perenimi ja email on kohustuslikud!")
-            return
+# Ühendatud funktsioon kustutamiseks
+def on_delete():
+    selected_item = tree.selection()  # Võta valitud rida
+    if selected_item:
+        record_id = selected_item[0]  # iid (ID)
+        confirm = messagebox.askyesno("Kinnita kustutamine", "Kas oled kindel, et soovid selle rea kustutada?")
+        if confirm:
+            try:
+                # Loo andmebaasi ühendus
+                conn = sqlite3.connect('.\kplaas.db')
+                cursor = conn.cursor()
+               
+                # Kustuta kirje
+                cursor.execute("DELETE FROM users WHERE id=?", (record_id,))
+                conn.commit()
+                conn.close()
+               
+                # Värskenda Treeview tabelit
+                load_data_from_db(tree)
+               
+                messagebox.showinfo("Edukalt kustutatud", "Rida on edukalt kustutatud!")
+            except sqlite3.Error as e:
+                messagebox.showerror("Viga", f"Andmebaasi viga: {e}")
+    else:
+        messagebox.showwarning("Valik puudub", "Palun vali kõigepealt rida!")
 
-        try:
-            conn = sqlite3.connect(DB_FILE)
-            cur = conn.cursor()
-            cur.execute("""
-                UPDATE users SET firstname = ?, lastname = ?, email = ?, phone = ?
-                WHERE id = ?
-            """, (new_firstname, new_lastname, new_email, new_phone, user_id))
-            conn.commit()
-            conn.close()
-            load_users()
-            form.destroy()
-            messagebox.showinfo("Edu", "Andmed uuendatud.")
-        except Exception as e:
-            messagebox.showerror("Viga", str(e))
-
-    tk.Button(form, text="Salvesta muudatused", command=save_changes).grid(row=4, columnspan=2, pady=10)
-
-def delete_selected_user():
-    selected = tree.focus()
-    if not selected:
-        messagebox.showwarning("Valik puudub", "Palun vali kasutaja, keda soovid kustutada.")
-        return
-
-    values = tree.item(selected, "values")
-    user_id = values[0]
-
-    confirm = messagebox.askyesno("Kinnitus", "Kas oled kindel, et soovid selle kasutaja kustutada?")
-    if not confirm:
-        return
-
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        cur = conn.cursor()
-        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        conn.commit()
-        conn.close()
-        load_users()
-        messagebox.showinfo("Kustutatud", "Kasutaja kustutati edukalt.")
-    except Exception as e:
-        messagebox.showerror("Viga", f"Kustutamine ebaõnnestus: {e}")
-
-# Peaaken
+# Loo põhivorm
 root = tk.Tk()
-root.title("Külaliste andmevaade")
+root.title("Filmid")
+root.geometry("1000x600")  # Soovitatav lisada akna suurus
 
-search_var = tk.StringVar()
+# Loo ülemine raam, mis sisaldab otsingut ja nuppe
+top_frame = tk.Frame(root)
+top_frame.pack(pady=10, fill=tk.X, padx=10)
 
-tk.Label(root, text="Otsi nime järgi:").pack(pady=5)
-tk.Entry(root, textvariable=search_var).pack(pady=5)
-tk.Button(root, text="Otsi", command=search_users).pack(pady=5)
+# Loo otsinguväli ja nupp vasakule
+search_frame = tk.Frame(top_frame)
+search_frame.pack(side=tk.LEFT, anchor="w")
 
-cols = ("ID", "Eesnimi", "Perenimi", "Email", "Telefon")
-tree = ttk.Treeview(root, columns=cols, show='headings')
+search_label = tk.Label(search_frame, text="Otsi nime järgi:")
+search_label.pack(side=tk.LEFT)
 
-for col in cols:
-    tree.heading(col, text=col)
-    tree.column(col, width=120)
+search_entry = tk.Entry(search_frame)
+search_entry.pack(side=tk.LEFT, padx=10)
 
-scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
-tree.configure(yscroll=scrollbar.set)
+search_button = tk.Button(search_frame, text="Otsi", command=on_search)
+search_button.pack(side=tk.LEFT)
 
-tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+# Loo nupud paremale
+buttons_frame = tk.Frame(top_frame)
+buttons_frame.pack(side=tk.RIGHT, anchor="e")
+
+# Lisa andmete lisamise nupp
+open_button = tk.Button(buttons_frame, text="Lisa andmeid", command=add_data)
+open_button.pack(side=tk.LEFT, padx=5)
+
+# Uuenda nupp
+update_button = tk.Button(buttons_frame, text="Uuenda", command=on_update)
+update_button.pack(side=tk.LEFT, padx=5)
+
+# Kustuta nupp
+delete_button = tk.Button(buttons_frame, text="Kustuta", command=on_delete)
+delete_button.pack(side=tk.LEFT, padx=5)
+
+# Loo raam kerimisribaga
+frame = tk.Frame(root)
+frame.pack(pady=20, fill=tk.BOTH, expand=True, padx=10)
+scrollbar = tk.Scrollbar(frame)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-btn_frame = tk.Frame(root)
-btn_frame.pack(pady=10)
+# Loo tabel (Treeview) andmete kuvamiseks, ilma ID veeruta
+tree = ttk.Treeview(frame, yscrollcommand=scrollbar.set, columns=(
+"eesnimi", "perenimi", "email", "tel", "profiilipilt"), show="headings")
+tree.pack(fill=tk.BOTH, expand=True)
 
-tk.Button(btn_frame, text="Lisa uus kasutaja", command=open_user_form).pack(side=tk.LEFT, padx=5)
-tk.Button(btn_frame, text="Muuda valitud kasutajat", command=edit_selected_user).pack(side=tk.LEFT, padx=5)
-tk.Button(btn_frame, text="Kustuta valitud kasutaja", command=delete_selected_user).pack(side=tk.LEFT, padx=5)
+# Seosta kerimisriba tabeliga
+scrollbar.config(command=tree.yview)
 
-load_users()
+# Määra veergude pealkirjad ja laius
+tree.heading("eesnimi", text="eesnimi")
+tree.heading("perenimi", text="perenimi")
+tree.heading("email", text="email")
+tree.heading("tel", text="tel")
+tree.heading("profiilipilt", text="profiilipilt")
+
+tree.column("eesnimi", width=100)
+tree.column("perenimi", width=60)
+tree.column("email", width=100)
+tree.column("tel", width=60)
+tree.column("profiilipilt", width=60)
+
+# Laadi andmed tabelisse
+load_data_from_db(tree)
+
+# Käivita põhiloogika
 root.mainloop()
