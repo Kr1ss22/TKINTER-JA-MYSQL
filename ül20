@@ -8,7 +8,7 @@ def load_data_from_db(tree, search_query=""):
     for item in tree.get_children():
         tree.delete(item)
     # Loo ühendus SQLite andmebaasiga
-    conn = sqlite3.connect('.\kplaas.db')
+    conn = sqlite3.connect('.\kmustkivi.db')
     cursor = conn.cursor()
 
     # Tee päring andmebaasist andmete toomiseks
