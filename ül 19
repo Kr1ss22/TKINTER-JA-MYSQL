@@ -1,15 +1,17 @@
-import sqlite3
-import tkinter as tk
-from tkinter import messagebox
+import sqlite3  
+import tkinter as tk  
+from tkinter import messagebox  
 
-# Ühenda andmebaasiga
+
 conn = sqlite3.connect("kmustkivi.db")
-cursor = conn.cursor()
+cursor = conn.cursor() 
 
+# Loo peamine Tkinter aken
 root = tk.Tk()
-root.title("Külalise lisamine")
+root.title("Külalise lisamine")  # Aken pealkiri
 
-# Väljade nimed ja nende sildid GUI-s (väli võtmena on eestikeelne, sildina kasutajale sobiv tekst)
+# Defineeri väljade nimed ja nende sildid GUI-s
+# 'võti' on andmebaasi/sisestusvälja nimi, 'väärtus' on kasutajale kuvatav tekst
 labels = {
     "eesnimi": "Eesnimi *",
     "perenimi": "Perekonnanimi",
@@ -18,43 +20,50 @@ labels = {
     "profiilipilt": "Profiilipilt (URL)"
 }
 
-entries = {}
+entries = {}  # Sõnastik, kuhu salvestatakse Entry vidinad
 
 # Loo sildid ja sisendväljad tsüklis
 for i, (field, label_text) in enumerate(labels.items()):
-    tk.Label(root, text=label_text).grid(row=i, column=0, padx=5, pady=5)
-    entry = tk.Entry(root, width=40)
-    entry.grid(row=i, column=1, padx=5, pady=5)
-    entries[field] = entry
+    tk.Label(root, text=label_text).grid(row=i, column=0, padx=5, pady=5)  # Loo Label
+    entry = tk.Entry(root, width=40)  # Loo tekstisisend
+    entry.grid(row=i, column=1, padx=5, pady=5)  # Aseta aknas
+    entries[field] = entry  # Salvesta Entry sõnastikku võtme järgi
 
 
+# Funktsioon, mis lisab külalise andmebaasi
 def lisa_kylaline():
+    # Võta väärtused sisendväljadest
     eesnimi = entries["eesnimi"].get()
     perenimi = entries["perenimi"].get()
     email = entries["email"].get()
     tel = entries["tel"].get()
     profiilipilt = entries["profiilipilt"].get()
 
+    # Kontrolli, et kohustuslikud väljad oleks täidetud
     if not eesnimi or not email:
         messagebox.showerror("Viga", "Eesnimi ja email on kohustuslikud!")
-        return
+        return  # Lõpeta funktsioon, kui väljad tühjad
 
     try:
+        # Lisa andmed SQLite tabelisse 'users'
         cursor.execute("""
             INSERT INTO users (eesnimi, perenimi, email, tel, profiilipilt)
             VALUES (?, ?, ?, ?, ?)
         """, (eesnimi, perenimi, email, tel, profiilipilt))
-        conn.commit()
+        conn.commit()  # Salvesta muudatused andmebaasi
         messagebox.showinfo("Edukas", "Külaline edukalt lisatud!")
-        # Puhasta väljad
+
+        # Puhasta kõik sisendväljad
         for entry in entries.values():
             entry.delete(0, tk.END)
     except Exception as e:
+        # Näita veateadet, kui midagi läks valesti
         messagebox.showerror("Tõrge", f"Midagi läks valesti: {e}")
 
 
+# Loo nupp külalise lisamiseks
 submit_btn = tk.Button(root, text="Lisa külaline", command=lisa_kylaline)
 submit_btn.grid(row=len(labels), column=0, columnspan=2, pady=10)
 
+# Käivita Tkinter peamine tsükkel
 root.mainloop()
-
