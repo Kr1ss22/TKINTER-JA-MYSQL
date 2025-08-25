@@ -4,7 +4,9 @@ import sqlite3
 
 DB_FILE = "kmustkivi.db"
 
+# --- Andmebaasi initsialiseerimine ---
 def init_db():
+    # Loo tabel users, kui see puudub
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -12,31 +14,38 @@ def init_db():
                 eesnimi TEXT NOT NULL,
                 perenimi TEXT NOT NULL,
                 email TEXT NOT NULL,
-                tel TEXT, profiilipilt TEXT
+                tel TEXT, 
+                profiilipilt TEXT
             )
         """)
 
+# --- Andmete laadimine tabelisse ---
 def load_data(query=""):
+    # Eemalda kõik read tabelist
     for item in tree.get_children():
         tree.delete(item)
+    
+    # Ühenda andmebaasiga ja tõmba read
     with sqlite3.connect(DB_FILE) as conn:
         cur = conn.cursor()
-        if query:
+        if query:  # Kui on otsing, filtreeri ees- või perekonnanime järgi
             cur.execute("SELECT * FROM users WHERE eesnimi LIKE ? OR perenimi LIKE ?", 
                         (f"%{query}%", f"%{query}%"))
-        else:
+        else:  # Lae kõik kasutajad
             cur.execute("SELECT * FROM users")
         for row in cur.fetchall():
-            tree.insert("", "end", iid=row[0], values=row[1:])
+            tree.insert("", "end", iid=row[0], values=row[1:])  # iid on kasutaja id
 
+# --- Salvestamine (uus või olemasolev kasutaja) ---
 def save_user(values, user_id=None):
     with sqlite3.connect(DB_FILE) as conn:
         cur = conn.cursor()
-        if user_id:
+        if user_id:  # Kui user_id olemas, uuenda
             cur.execute("""UPDATE users SET eesnimi=?, perenimi=?, email=?, tel=?, profiilipilt=? WHERE id=?""", (*values, user_id))
-        else:
+        else:  # Uue kasutaja lisamine
             cur.execute("""INSERT INTO users (eesnimi, perenimi, email, tel, profiilipilt) VALUES (?, ?, ?, ?, ?)""", values)
 
+# --- Akna avamine uue kasutaja lisamiseks või olemasoleva muutmiseks ---
 def open_user_window(user_id=None):
     window = tk.Toplevel(root)
     window.title("Muuda kasutajat" if user_id else "Lisa kasutaja")
@@ -44,12 +53,14 @@ def open_user_window(user_id=None):
     fields = ["Eesnimi *", "Perenimi *", "Email *", "Telefon", "Profiilipilt"]
     entries = []
 
+    # Loo sildid ja sisendväljad
     for i, label in enumerate(fields):
         tk.Label(window, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
         entry = tk.Entry(window)
         entry.grid(row=i, column=1, padx=5, pady=2)
         entries.append(entry)
 
+    # Kui on olemasolev kasutaja, täida väljad andmetega
     if user_id:
         with sqlite3.connect(DB_FILE) as conn:
             cur = conn.cursor()
@@ -58,16 +69,19 @@ def open_user_window(user_id=None):
             for i, value in enumerate(user):
                 entries[i].insert(0, value or "")
 
+    # Funktsioon salvestamiseks
     def save():
         values = [e.get().strip() for e in entries]
+        # Kontrolli kohustuslikke välju (eesnimi, perenimi, email)
         if not all(values[:3]):
             return messagebox.showerror("Viga", "Eesnimi, perenimi ja email on kohustuslikud!")
         save_user(values, user_id)
         window.destroy()
-        load_data()
+        load_data()  # Värskenda tabelit
 
     tk.Button(window, text="Salvesta", command=save).grid(row=len(fields), column=0, columnspan=2, pady=10)
 
+# --- Kasutaja kustutamine ---
 def on_delete():
     selected = tree.selection()
     if not selected:
@@ -76,28 +90,33 @@ def on_delete():
         return
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute("DELETE FROM users WHERE id=?", (selected[0],))
-    load_data()
+    load_data()  # Värskenda tabelit
 
+# --- Otsing kasutajate seas ---
 def on_search():
     load_data(search_entry.get().strip())
 
+# --- GUI loomine ---
 root = tk.Tk()
 root.title("Kasutajate haldus")
 root.geometry("800x500")
 
-init_db()
+init_db()  # Loo tabel, kui puudub
 
+# Otsinguriba
 tk.Label(root, text="Otsi:").pack(pady=5)
 search_entry = tk.Entry(root)
 search_entry.pack(fill=tk.X, padx=10)
 tk.Button(root, text="Otsi", command=on_search).pack(pady=5)
 
+# Nupud: Lisa, Muuda, Kustuta
 btn_frame = tk.Frame(root)
 btn_frame.pack(pady=5)
 tk.Button(btn_frame, text="Lisa", command=lambda: open_user_window()).pack(side=tk.LEFT, padx=5)
 tk.Button(btn_frame, text="Muuda", command=lambda: open_user_window(tree.selection()[0] if tree.selection() else None)).pack(side=tk.LEFT, padx=5)
 tk.Button(btn_frame, text="Kustuta", command=on_delete).pack(side=tk.LEFT, padx=5)
 
+# Andmetabel
 cols = ("eesnimi", "perenimi", "email", "tel", "profiilipilt")
 tree = ttk.Treeview(root, columns=cols, show="headings")
 for col in cols:
@@ -105,6 +124,8 @@ for col in cols:
     tree.column(col, width=150)
 tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+# Lae algandmed tabelisse
 load_data()
-root.mainloop()
 
+# Käivita GUI tsükkel
+root.mainloop()
